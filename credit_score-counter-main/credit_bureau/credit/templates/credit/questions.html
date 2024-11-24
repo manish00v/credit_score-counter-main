@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Questions</title>
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        /* Main container styles */
+        .container-fluid {
+            padding: 0;
+            display: flex;
+        }
+
+        /* Sidebar styling */
+        .sidebar {
+            background-color: #f8fafc;
+            padding: 20px;
+            border-right: 2px solid #e2e8f0;
+            width: 220px;
+            height: 100vh;
+            position: fixed;
+            overflow-y: auto;
+        }
+
+        /* Sidebar question grid */
+        .question-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+        }
+
+        /* Individual question button styles */
+        .question-button {
+            background-color: #e2e8f0;
+            border: none;
+            color: #000;
+            padding: 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background-color 0.3s ease;
+        }
+        .question-button:hover, .question-button:focus {
+            background-color: #d1d5db;
+        }
+        .question-button.attempted {
+            background-color: #3b82f6; /* Blue for attempted questions */
+            color: #fff;
+        }
+
+        /* Main content styling */
+        .main-content {
+            margin-left: 250px; /* Space for sidebar */
+            padding: 20px;
+            width: calc(100% - 250px);
+        }
+
+        /* Navbar styling */
+        .navbar {
+            margin-bottom: 20px;
+            padding: 10px 20px;
+            background-color: #1f2937;
+            color: #f9fafb;
+            border-radius: 0 0 8px 8px;
+        }
+        .navbar-brand, .navbar-text, .btn-outline-light {
+            color: #f9fafb !important;
+        }
+        .btn-outline-light:hover {
+            background-color: #f9fafb;
+            color: #1f2937 !important;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navbar with Logout Button -->
+    <nav class="navbar navbar-dark">
+        <a class="navbar-brand" href="#">Credit Bureau</a>
+        <div class="ml-auto">
+            {% if user.is_authenticated %}
+                <span class="navbar-text mr-3">Hello, {{ user.username }}!</span>
+                <!-- Logout form to handle logout via POST request -->
+                <form method="post" action="{% url 'logout' %}" style="display: inline;">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-outline-light">Logout</button>
+                </form>
+            {% else %}
+                <a href="{% url 'login' %}" class="btn btn-outline-light">Login</a>
+            {% endif %}
+        </div>
+    </nav>
+
+    <div class="container-fluid">
+        <!-- Sidebar with Question Navigation -->
+        <div class="sidebar">
+            <h5 class="text-center font-weight-bold">Questions</h5>
+            <div class="question-grid">
+                {% for question in questions %}
+                <button type="button" class="question-button" id="nav-question-{{ forloop.counter }}" onclick="showQuestion({{ forloop.counter }})">
+                    Q{{ forloop.counter }}
+                </button>
+                {% endfor %}
+            </div>
+            <p class="mt-4 text-center font-weight-bold">Unattempted Questions: <span id="unattempted-count">{{ questions|length }}</span></p>
+        </div>
+
+        <!-- Main Content Area for Questions -->
+        <div class="main-content">
+            <h2 class="text-center mb-4">Answer the Following Questions</h2>
+
+            <!-- Form starts here -->
+            <form method="post" id="questionsForm" onsubmit="return validateForm()">
+                {% csrf_token %}
+
+                {% for question in questions %}
+                <div class="question-container" id="question-{{ forloop.counter }}" style="display: {% if forloop.first %}block{% else %}none{% endif %};">
+                    <p><strong>{{ question.question_text }}</strong></p>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="question_{{ question.id }}" value="A" required onclick="markAttempted({{ forloop.counter }})">
+                        <label class="form-check-label">{{ question.option_a }}</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="question_{{ question.id }}" value="B" required onclick="markAttempted({{ forloop.counter }})">
+                        <label class="form-check-label">{{ question.option_b }}</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="question_{{ question.id }}" value="C" required onclick="markAttempted({{ forloop.counter }})">
+                        <label class="form-check-label">{{ question.option_c }}</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="question_{{ question.id }}" value="D" required onclick="markAttempted({{ forloop.counter }})">
+                        <label class="form-check-label">{{ question.option_d }}</label>
+                    </div>
+
+                    <!-- Navigation buttons -->
+                    <div class="mt-3">
+                        {% if not forloop.first %}
+                        <button type="button" class="btn btn-secondary" onclick="showQuestion({{ forloop.counter|add:'-1' }})">Previous</button>
+                        {% endif %}
+                        {% if not forloop.last %}
+                        <button type="button" class="btn btn-primary" onclick="showQuestion({{ forloop.counter|add:'1' }})">Next</button>
+                        {% else %}
+                        <button type="submit" class="btn btn-success">Submit All Answers</button>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </form>
+        </div>
+    </div>
+
+    <script>
+    let unattemptedCount = {{ questions|length }};
+
+    function showQuestion(questionNumber) {
+        // Hide all question containers
+        document.querySelectorAll('.question-container').forEach(el => el.style.display = 'none');
+        // Show the selected question container
+        document.getElementById(`question-${questionNumber}`).style.display = 'block';
+    }
+
+    function markAttempted(questionNumber) {
+        // Mark the question as attempted in the sidebar
+        const navButton = document.getElementById(`nav-question-${questionNumber}`);
+        if (navButton && !navButton.classList.contains('attempted')) {
+            navButton.classList.add('attempted');
+            // Update the unattempted count
+            unattemptedCount--;
+            document.getElementById('unattempted-count').textContent = unattemptedCount;
+        }
+    }
+
+    // Form validation function
+    function validateForm() {
+        let allAttempted = true;
+        document.querySelectorAll('.question-container').forEach((questionContainer, index) => {
+            // Check if each question has an answer selected
+            const questionInputs = questionContainer.querySelectorAll('input[type="radio"]');
+            const isAnswered = Array.from(questionInputs).some(input => input.checked);
+            if (!isAnswered) {
+                allAttempted = false;
+                // Show the question that is not answered
+                showQuestion(index + 1);
+                alert("Please answer all questions before submitting.");
+                return false;  // Exit the loop
+            }
+        });
+        return allAttempted;  // Allow form submission if all questions are answered
+    }
+    </script>
+</body>
+</html>
